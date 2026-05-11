@@ -7,11 +7,78 @@ const server = new McpServer({
   version: "1.0.0"
 });
 
-server.tool(
-  'get-weather',
-  'Tool to get the weather of a city',
+server.registerResource(
+  "getting-started",
+  "weather://getting-started",
   {
-    city: z.string().describe("The name of the city to get the weather for")
+    title: "Getting Started",
+    description: "Quick guide for using the Weather Server MCP tools.",
+    mimeType: "text/markdown"
+  },
+  async (uri) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "text/markdown",
+        text: `# Getting Started
+
+This MCP server provides weather data using Open-Meteo.
+
+## Available tools
+
+- \`get-weather\`: Fetches current and short-term forecast data for a city.
+
+## Example
+
+Call \`get-weather\` with:
+
+\`\`\`json
+{
+  "city": "Nairobi"
+}
+\`\`\`
+
+The tool resolves the city to coordinates, fetches the current weather and one-day hourly forecast, then returns the raw weather data as formatted JSON.`
+      }
+    ]
+  })
+);
+
+server.registerPrompt(
+  "weather-report",
+  {
+    title: "Weather Report",
+    description: "Create a concise weather report for a city using this server's weather tool.",
+    argsSchema: {
+      city: z.string().describe("The city to get the weather report for"),
+      focus: z.string().optional().describe("Optional area to emphasize, such as rain, temperature, or travel planning")
+    }
+  },
+  async ({ city, focus }) => ({
+    description: `Weather report for ${city}`,
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `Use the get-weather tool to fetch weather data for ${city}. Then write a concise, practical weather report.${focus ? ` Focus especially on ${focus}.` : ""}
+
+Include:
+- current temperature and apparent temperature
+- humidity and precipitation
+- any notable short-term forecast changes
+- one brief recommendation for someone planning their day`
+        }
+      }
+    ]
+  })
+);
+
+server.registerTool(
+  'get-weather',
+  {
+    description: 'Tool to get the weather of a city',
+    inputSchema: z.object({ city: z.string().describe("The name of the city to get the weather for") }),
   },
   async({ city }) => {
     try {
@@ -55,7 +122,7 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Error fetching weather data: ${error.message}`
+            text: `Error fetching weather data: ${error?.message}`
           }
         ]
       };
@@ -63,5 +130,9 @@ server.tool(
   }
 );
 
-const transport = new StdioServerTransport();
-server.connect(transport);
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+main();
